@@ -12,8 +12,7 @@ jobs:
           python-version: '3.12'
       - run: pip install -r requirements.txt
       - run: python scripts/sync_official_assets_ci.py
-      - run: python renderer/offline_renderer/render.py --all
-      - run: python renderer/offline_renderer/validate.py
+      - run: python scripts/render_official_partial.py
       - uses: actions/upload-artifact@v4
         with:
           name: liquid-glass-previews
@@ -21,3 +20,5 @@ jobs:
             generated/contact-sheets/
             variants/regular/
             artwork/official/provenance.json
+            artwork/official/unresolved.json
+      - run: python renderer/offline_renderer/validate.py
