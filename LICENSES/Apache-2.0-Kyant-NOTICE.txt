@@ -1,0 +1,3 @@
+Copyright 2025 Kyant
+
+The modified derivative in `renderer/agsl-preview/liquid_glass_reference.agsl` is licensed under the Apache License, Version 2.0. Obtain the complete license text at https://www.apache.org/licenses/LICENSE-2.0.txt . Modifications and source provenance are documented in docs/THIRD_PARTY.md.

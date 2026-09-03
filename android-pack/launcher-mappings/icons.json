@@ -1,0 +1,111 @@
+{
+  "telegram": {
+    "displayName": "Telegram",
+    "packages": [
+      "org.telegram.messenger"
+    ],
+    "tint": "#2AABEE",
+    "class": "irregular",
+    "scale": 0.78,
+    "offsetX": 0.01,
+    "offsetY": 0.01,
+    "source": "normalized vector based on public Telegram mark / Simple Icons geometry"
+  },
+  "discord": {
+    "displayName": "Discord",
+    "packages": [
+      "com.discord"
+    ],
+    "tint": "#5865F2",
+    "class": "wide",
+    "scale": 0.75,
+    "offsetX": 0,
+    "offsetY": 0.01,
+    "source": "normalized vector based on Simple Icons blob 9d7796…"
+  },
+  "github": {
+    "displayName": "GitHub",
+    "packages": [
+      "com.github.android"
+    ],
+    "tint": "#D9D9E0",
+    "class": "circular",
+    "scale": 0.72,
+    "offsetX": 0,
+    "offsetY": 0.015,
+    "source": "normalized vector based on Simple Icons blob 538ec5…"
+  },
+  "google_play": {
+    "displayName": "Google Play",
+    "packages": [
+      "com.android.vending"
+    ],
+    "tint": "#34A853",
+    "class": "irregular",
+    "scale": 0.72,
+    "offsetX": 0.015,
+    "offsetY": 0,
+    "source": "original multicolor geometric reconstruction based on Google Play identity"
+  },
+  "pinterest": {
+    "displayName": "Pinterest",
+    "packages": [
+      "com.pinterest"
+    ],
+    "tint": "#E60023",
+    "class": "circular",
+    "scale": 0.72,
+    "offsetX": 0,
+    "offsetY": 0,
+    "source": "normalized vector based on Simple Icons blob 2ce115…"
+  },
+  "kaspi": {
+    "displayName": "Kaspi.kz",
+    "packages": [
+      "kz.kaspi.mobile"
+    ],
+    "tint": "#F44336",
+    "class": "circular",
+    "scale": 0.78,
+    "offsetX": 0,
+    "offsetY": 0,
+    "source": "prototype visual reconstruction of current public Kaspi.kz app icon; replace before release"
+  },
+  "2gis": {
+    "displayName": "2GIS",
+    "packages": [
+      "ru.dublgis.dgismobile"
+    ],
+    "tint": "#18B52C",
+    "class": "normal",
+    "scale": 0.8,
+    "offsetX": 0,
+    "offsetY": 0,
+    "source": "prototype visual reconstruction of current public 2GIS app icon; replace before release"
+  },
+  "revanced": {
+    "displayName": "YouTube ReVanced",
+    "packages": [
+      "app.revanced.android.youtube",
+      "com.google.android.youtube"
+    ],
+    "tint": "#7C69DB",
+    "class": "circular",
+    "scale": 0.75,
+    "offsetX": 0,
+    "offsetY": 0,
+    "source": "simplified QA reference derived from documented ReVanced brand geometry; do not ship without branding permission"
+  },
+  "gamehub": {
+    "displayName": "GameHub",
+    "packages": [
+      "com.xiaoji.egggame"
+    ],
+    "tint": "#117EBC",
+    "class": "normal",
+    "scale": 0.8,
+    "offsetX": 0,
+    "offsetY": 0,
+    "source": "prototype visual reconstruction of current public GameHub app icon; replace before release"
+  }
+}
