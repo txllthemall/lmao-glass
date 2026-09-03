@@ -1,4 +1,14 @@
-from scripts import sync_official_assets as sync
+from __future__ import annotations
+
+import importlib.util
+from pathlib import Path
+
+source_file = Path(__file__).with_name("sync_official_assets.py")
+spec = importlib.util.spec_from_file_location("sync_official_assets", source_file)
+if spec is None or spec.loader is None:
+    raise RuntimeError(f"cannot load {source_file}")
+sync = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(sync)
 
 _original_fetch = sync.fetch
 
