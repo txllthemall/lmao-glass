@@ -11,6 +11,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install -r requirements.txt
+      - run: python scripts/sync_official_assets.py
       - run: python renderer/offline_renderer/render.py --all
       - run: python renderer/offline_renderer/validate.py
       - uses: actions/upload-artifact@v4
@@ -19,3 +20,4 @@ jobs:
           path: |
             generated/contact-sheets/
             variants/regular/
+            artwork/official/provenance.json
