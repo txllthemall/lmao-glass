@@ -102,9 +102,8 @@ def extracted_logo_mask(glyph: Image.Image) -> np.ndarray:
 def lens_fields(mask: np.ndarray, band_px: float, z: float):
     """Build a rounded transparent slab from a mask.
 
-    Height is zero at the boundary and rises into the body. This is the opposite
-    of the older edge-raised approximation and gives a physically sensible
-    normal field for a lens/slab edge.
+    Height is zero at the boundary and rises into the body. This gives a
+    physically sensible edge-normal field for a clear slab/lens.
     """
     m = np.clip(mask.astype(np.float32), 0, 1)
     binary = m > 0.08
@@ -173,14 +172,13 @@ def optical_layers(mask: np.ndarray, edge: np.ndarray, nx: np.ndarray, ny: np.nd
         fresnel_strength = preset.get("fresnelAlpha", 0.060)
         max_alpha = preset.get("maxAlpha", 0.28)
 
-    # A broad neutral reflection is weaker than the narrow edge/specular lobe.
     broad_reflection = (lit ** 1.6) * (edge ** 1.25) * rim_strength * 0.28
     bright_rim = (0.28 + 0.72 * lit) * (edge ** 1.65) * rim_strength
     specular = (lit ** (3.0 + 15.0 * preset.get("roughness", 0.18))) * edge * spec_strength
     dark_rim = (0.22 + 0.78 * dark) * (edge ** 1.52) * dark_strength
     fresnel_alpha = fresnel * fresnel_strength
 
-    # Mild curvature/caustic cue: paired neutral lobe, not a sampled backdrop.
+    # Mild curvature/caustic cue: paired neutral lobe, never a sampled backdrop.
     normal_xy = np.sqrt(nx * nx + ny * ny)
     caustic = normal_xy * edge * (0.20 + 0.80 * lit) * preset.get("causticAlpha", 0.035)
 
@@ -200,6 +198,21 @@ def optical_layers(mask: np.ndarray, edge: np.ndarray, nx: np.ndarray, ny: np.nd
     }
 
 
+def _force_neutral_rgb(image: Image.Image) -> Image.Image:
+    """Make the production overlay strictly colorless while preserving alpha.
+
+    Pillow's integer alpha compositor can introduce 1-channel rounding drift
+    when neutral layers use slightly different RGB values. Collapse RGB to an
+    exact grayscale value so brand tint/chroma is mathematically impossible.
+    """
+    arr = np.asarray(image.convert("RGBA"), dtype=np.uint8).copy()
+    gray = np.rint(arr[..., :3].astype(np.float32).mean(axis=2)).astype(np.uint8)
+    arr[..., 0] = gray
+    arr[..., 1] = gray
+    arr[..., 2] = gray
+    return Image.fromarray(arr, "RGBA")
+
+
 def render_one_debug(slug: str, cfg: dict, preset: dict):
     n = MASTER
     outer_mask = rounded_mask(n)
@@ -211,9 +224,9 @@ def render_one_debug(slug: str, cfg: dict, preset: dict):
     outer = optical_layers(outer_mask, outer_edge, nx, ny, nz, preset, glyph=False)
 
     base = Image.new("RGBA", (n, n), (0, 0, 0, 0))
-    # Body is nearly invisible; edge polarity creates the glass boundary.
-    base.alpha_composite(_rgba_layer((232, 234, 236), outer["body"]))
-    base.alpha_composite(_rgba_layer((17, 18, 20), outer["dark"]))
+    # Body is nearly invisible; directional edge polarity carries the material.
+    base.alpha_composite(_rgba_layer((234, 234, 234), outer["body"]))
+    base.alpha_composite(_rgba_layer((18, 18, 18), outer["dark"]))
     base.alpha_composite(_rgba_layer((255, 255, 255), outer["bright"]))
 
     glyph = render_artwork(artwork_path(slug), cfg["scale"], cfg["offsetX"], cfg["offsetY"])
@@ -232,10 +245,11 @@ def render_one_debug(slug: str, cfg: dict, preset: dict):
         0,
         0.02,
     )
-    base.alpha_composite(_rgba_layer((8, 9, 10), contact_alpha))
-    base.alpha_composite(_rgba_layer((234, 236, 238), inner["body"]))
-    base.alpha_composite(_rgba_layer((12, 13, 15), inner["dark"]))
+    base.alpha_composite(_rgba_layer((9, 9, 9), contact_alpha))
+    base.alpha_composite(_rgba_layer((236, 236, 236), inner["body"]))
+    base.alpha_composite(_rgba_layer((13, 13, 13), inner["dark"]))
     base.alpha_composite(_rgba_layer((255, 255, 255), inner["bright"]))
+    base = _force_neutral_rgb(base)
 
     normal = np.dstack([(nx * 0.5 + 0.5), (ny * 0.5 + 0.5), (nz * 0.5 + 0.5)])
     debug = {
