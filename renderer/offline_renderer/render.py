@@ -16,11 +16,6 @@ DP_SCALE = MASTER / 108.0
 OFFICIAL = ROOT / "artwork" / "official"
 
 
-def hexrgb(h: str) -> np.ndarray:
-    h = h.lstrip("#")
-    return np.array([int(h[i:i + 2], 16) for i in (0, 2, 4)], dtype=np.float32) / 255.0
-
-
 def rounded_mask(n: int = MASTER, margin: int = 62, radius: int = 236) -> np.ndarray:
     im = Image.new("L", (n, n), 0)
     ImageDraw.Draw(im).rounded_rectangle((margin, margin, n - margin, n - margin), radius=radius, fill=255)
@@ -34,16 +29,23 @@ def sample_bilinear(img: np.ndarray, x: np.ndarray, y: np.ndarray) -> np.ndarray
     )
 
 
-def virtual_environment(n: int, tint: np.ndarray) -> np.ndarray:
+def virtual_environment(n: int) -> np.ndarray:
+    """Neutral environment used only to bake clear-glass optical cues.
+
+    The material itself carries no brand tint. All channels start from the same
+    luminance field so any visible colour in a final launcher screenshot comes
+    from the wallpaper/background, not from the icon material.
+    """
     y, x = np.mgrid[0:n, 0:n].astype(np.float32)
     u = x / (n - 1)
     v = y / (n - 1)
-    base = np.zeros((n, n, 3), np.float32)
-    base[..., 0] = 0.50 + 0.08 * (1 - v) + 0.03 * np.sin((u + v) * math.pi * 2)
-    base[..., 1] = 0.52 + 0.07 * (1 - v) + 0.02 * np.cos(u * math.pi * 2)
-    base[..., 2] = 0.56 + 0.08 * (1 - v)
-    spill = np.exp(-(((u - 0.20) / 0.30) ** 2 + ((v - 0.18) / 0.28) ** 2))[..., None]
-    return np.clip(base * (1 - spill * 0.04) + tint[None, None, :] * (spill * 0.04), 0, 1)
+    luma = (
+        0.535
+        + 0.060 * (1 - v)
+        + 0.026 * np.sin((u + v) * math.pi * 2)
+        + 0.018 * np.cos(u * math.pi * 2)
+    )
+    return np.clip(np.repeat(luma[..., None], 3, axis=2), 0, 1)
 
 
 def artwork_path(slug: str) -> Path:
@@ -82,11 +84,11 @@ def render_artwork(path: Path, scale: float, ox: float, oy: float) -> Image.Imag
 
 
 def extracted_logo_mask(glyph: Image.Image) -> np.ndarray:
-    """Return foreground geometry without preserving an opaque app-icon square.
+    """Return brand geometry only, never the authored brand colour.
 
-    Vector/transparent assets keep their authored alpha. Fully opaque Play Store
-    rasters are converted to a contrast-derived foreground mask so the result is
-    glass, not an opaque icon pasted inside a glass tile.
+    Transparent/vector sources contribute their authored alpha geometry. A fully
+    opaque Play Store raster is reduced to a contrast-derived foreground mask as
+    a temporary fallback until a real foreground/vector source is available.
     """
     arr = np.asarray(glyph, dtype=np.float32) / 255.0
     rgb = arr[..., :3]
@@ -120,29 +122,32 @@ def extracted_logo_mask(glyph: Image.Image) -> np.ndarray:
     mask = ndimage.gaussian_filter(mask, sigma=1.2)
     mask = np.clip(mask * alpha, 0, 1)
 
-    # A pathological flat raster should not become a solid translucent square.
     if float(mask.mean()) > 0.72:
         mask = np.clip(local_delta * 5.0, 0, 1) * alpha
     return mask
 
 
+def lens_normals(mask: np.ndarray, band_px: float, z: float):
+    binary = mask > 0.08
+    inside = ndimage.distance_transform_edt(binary)
+    edge = np.clip(1.0 - inside / max(1.0, band_px), 0, 1) * np.clip(mask, 0, 1)
+    height = (1 - np.sqrt(np.clip(1 - edge * edge, 0, 1))) * np.clip(mask, 0, 1)
+    gy, gx = np.gradient(height)
+    nz = np.full_like(gx, z)
+    norm = np.sqrt(gx * gx + gy * gy + nz * nz) + 1e-6
+    return edge, height, -gx / norm, -gy / norm, nz / norm
+
+
 def render_one(slug: str, cfg: dict, preset: dict):
     n = MASTER
     mask = rounded_mask(n)
-    inside = ndimage.distance_transform_edt(mask > 0.5)
-    band = max(1, preset["refractionBandDp"] * DP_SCALE)
-    edge = np.clip(1.0 - inside / band, 0, 1)
-    height = (1 - np.sqrt(np.clip(1 - edge * edge, 0, 1))) * mask
+    edge, height, nx, ny, nz = lens_normals(
+        mask,
+        preset["refractionBandDp"] * DP_SCALE,
+        z=0.62,
+    )
 
-    gy, gx = np.gradient(height)
-    nz = np.full_like(gx, 0.62)
-    norm = np.sqrt(gx * gx + gy * gy + nz * nz) + 1e-6
-    nx = -gx / norm
-    ny = -gy / norm
-    nz = nz / norm
-
-    tint = hexrgb(cfg["tint"])
-    env = virtual_environment(n, tint)
+    env = virtual_environment(n)
     env_img = Image.fromarray((env * 255).astype("uint8")).filter(
         ImageFilter.GaussianBlur(radius=preset["blurDp"] * DP_SCALE)
     )
@@ -150,8 +155,8 @@ def render_one(slug: str, cfg: dict, preset: dict):
 
     y, x = np.mgrid[0:n, 0:n].astype(np.float32)
     refr_px = preset["refractionDp"] * DP_SCALE
-    sx = x + nx * refr_px * (0.18 + 0.82 * edge)
-    sy = y + ny * refr_px * (0.18 + 0.82 * edge)
+    sx = x + nx * refr_px * (0.15 + 0.85 * edge)
+    sy = y + ny * refr_px * (0.15 + 0.85 * edge)
     refr = sample_bilinear(env, sx, sy)
 
     ang = math.radians(preset["highlightAngleDeg"])
@@ -166,51 +171,68 @@ def render_one(slug: str, cfg: dict, preset: dict):
     refr[..., 0] = sample_bilinear(env, sx + nx * disp * disp_edge, sy + ny * disp * disp_edge)[..., 0]
     refr[..., 2] = sample_bilinear(env, sx - nx * disp * disp_edge, sy - ny * disp * disp_edge)[..., 2]
 
-    # Clear glass: almost no body opacity. Identity comes from optical edge
-    # behavior, not from a milky translucent fill.
     spec = (ndl ** (3.2 + 14 * preset["roughness"])) * edge * preset["specular"]
     rim = (edge ** 1.55) * preset["rimAlpha"]
     body_alpha = preset["glassAlpha"] * mask
-    out_a = np.clip(body_alpha + rim * 0.42 + spec * 0.30 + fresnel * 0.15, 0, 0.44) * mask
+    out_a = np.clip(body_alpha + rim * 0.34 + spec * 0.27 + fresnel * 0.13, 0, 0.30) * mask
 
-    rgb = refr * (0.965 + 0.035 * tint[None, None, :])
-    rgb += tint[None, None, :] * (0.022 * edge[..., None])
-    rgb += spec[..., None] * 0.62 + fresnel[..., None] * 0.16
-    rgb -= opposite[..., None] * edge[..., None] * 0.055
+    rgb = refr.copy()
+    rgb += spec[..., None] * 0.56 + fresnel[..., None] * 0.13
+    rgb -= opposite[..., None] * edge[..., None] * 0.050
 
     shadow = ndimage.gaussian_filter(edge, preset["shadowBlurDp"] * DP_SCALE) * preset["shadowAlpha"]
-    rgb -= shadow[..., None] * 0.018
+    rgb -= shadow[..., None] * 0.012
     rng = np.random.default_rng(20260904)
     rgb += rng.normal(0, preset["noise"], (n, n, 1)).astype(np.float32) * mask[..., None]
     rgb = np.clip(rgb, 0, 1)
 
     base = Image.fromarray((np.dstack([rgb, out_a]) * 255).astype("uint8"), "RGBA")
 
-    # The brand artwork itself is also glass. Opaque raster backgrounds are
-    # stripped into a foreground mask and then rendered as stained/clear glass.
+    # GLASS IN GLASS: official artwork contributes geometry only. The glyph is
+    # a second clear optical lens embedded inside the outer clear-glass body.
+    # No source colour, no white/gray monochrome fill, no brand tint.
     glyph = render_artwork(artwork_path(slug), cfg["scale"], cfg["offsetX"], cfg["offsetY"])
-    g = np.asarray(glyph, dtype=np.float32) / 255.0
     logo_mask = extracted_logo_mask(glyph)
-    logo_edge = np.clip(ndimage.gaussian_gradient_magnitude(logo_mask, sigma=1.15) * 4.0, 0, 1)
-    logo_spec = np.clip(ndl * logo_edge, 0, 1)
+    logo_edge, _, lnx, lny, lnz = lens_normals(
+        logo_mask,
+        preset.get("glyphRefractionBandDp", 3.4) * DP_SCALE,
+        z=0.48,
+    )
 
-    source_rgb = g[..., :3]
-    glass_rgb = np.clip(source_rgb * 0.34 + refr * 0.54 + tint[None, None, :] * 0.12, 0, 1)
-    glass_rgb += logo_spec[..., None] * 0.32
-    glass_rgb = np.clip(glass_rgb, 0, 1)
+    logo_refr_px = preset.get("glyphRefractionDp", 2.05) * DP_SCALE
+    lsx = x + lnx * logo_refr_px * (0.20 + 0.80 * logo_edge)
+    lsy = y + lny * logo_refr_px * (0.20 + 0.80 * logo_edge)
+    logo_refr = sample_bilinear(env, lsx, lsy)
 
-    glyph_opacity = preset["glyphOpacity"]
-    glyph_alpha = logo_mask * glyph_opacity * (0.34 + 0.48 * logo_edge)
-    glyph_alpha += logo_spec * 0.16
-    glyph_alpha = np.clip(glyph_alpha, 0, 0.55)
+    lndl_raw = lnx * lx + lny * ly
+    lndl = np.clip(lndl_raw, 0, 1)
+    lopposite = np.clip(-lndl_raw, 0, 1)
+    lfresnel = (1 - np.clip(lnz, 0, 1)) ** 1.45 * logo_edge
+    lspec = (
+        lndl ** (2.8 + 12 * preset["roughness"])
+    ) * logo_edge * preset.get("glyphSpecular", 0.48)
+    lrim = (logo_edge ** 1.45) * preset.get("glyphRimAlpha", 0.46)
 
-    # Very soft contact shadow only; no sticker-like dark drop shadow.
-    soft = Image.fromarray((logo_mask * 255).astype("uint8"), "L").filter(ImageFilter.GaussianBlur(radius=8))
-    shadow_rgba = Image.new("RGBA", (n, n), (0, 0, 0, 0))
-    shadow_rgba.putalpha(soft.point(lambda p: int(p * 0.025)))
-    base.alpha_composite(shadow_rgba, (3, 5))
+    logo_rgb = logo_refr.copy()
+    logo_rgb += lspec[..., None] * 0.62 + lfresnel[..., None] * 0.17
+    logo_rgb -= lopposite[..., None] * logo_edge[..., None] * 0.060
+    logo_rgb = np.clip(logo_rgb, 0, 1)
 
-    glass_glyph = Image.fromarray((np.dstack([glass_rgb, glyph_alpha]) * 255).astype("uint8"), "RGBA")
+    logo_body_alpha = preset.get("glyphGlassAlpha", 0.055) * logo_mask
+    glyph_alpha = np.clip(
+        logo_body_alpha + lrim * 0.38 + lspec * 0.29 + lfresnel * 0.15,
+        0,
+        0.38,
+    ) * np.clip(logo_mask + logo_edge, 0, 1)
+
+    # Only enough depth separation to read the inner glass lens. It must not
+    # become a dark sticker or a monochrome glyph.
+    soft = Image.fromarray((logo_mask * 255).astype("uint8"), "L").filter(ImageFilter.GaussianBlur(radius=7))
+    contact = Image.new("RGBA", (n, n), (0, 0, 0, 0))
+    contact.putalpha(soft.point(lambda p: int(p * 0.010)))
+    base.alpha_composite(contact, (2, 3))
+
+    glass_glyph = Image.fromarray((np.dstack([logo_rgb, glyph_alpha]) * 255).astype("uint8"), "RGBA")
     base.alpha_composite(glass_glyph)
 
     return base, mask, height, np.dstack([(nx * 0.5 + 0.5), (ny * 0.5 + 0.5), (nz * 0.5 + 0.5)])
@@ -273,7 +295,9 @@ def source_geometry_sheet(outputs: dict, cfgs: dict):
             artwork_path(slug), cfgs[slug]["scale"], cfgs[slug]["offsetX"], cfgs[slug]["offsetY"]
         ).resize((icon, icon), Image.Resampling.LANCZOS)
         out = rendered.resize((icon, icon), Image.Resampling.LANCZOS)
-        for c, (label, im) in enumerate((("official artwork + optical placement", source), ("transparent glass render", out))):
+        for c, (label, im) in enumerate(
+            (("official source geometry", source), ("colorless glass-in-glass render", out))
+        ):
             x = c * cell_w + (cell_w - icon) // 2
             y = r * cell_h + 42
             canvas = Image.new("RGBA", (icon, icon), (118, 122, 128, 255))
@@ -343,6 +367,10 @@ def main():
         )
         glyph = render_artwork(artwork_path(slug), cfg["scale"], cfg["offsetX"], cfg["offsetY"])
         logo_mask = extracted_logo_mask(glyph)
+
+        # Android's monochrome layer exists only for system themed-icons mode.
+        # It is NOT the visual design of this pack. Normal icons remain clear
+        # glass-in-glass, fully colorless and non-monochrome in appearance.
         mono = Image.new("RGBA", (MASTER, MASTER), (255, 255, 255, 0))
         mono.putalpha(Image.fromarray((logo_mask * 255).astype("uint8"), "L"))
         mono.resize((432, 432), Image.Resampling.LANCZOS).save(
@@ -351,7 +379,7 @@ def main():
 
     contact_sheet(outs, cfgs)
     source_geometry_sheet(outs, cfgs)
-    print("generated", len(outs), "transparent glass icons from official source cache")
+    print("generated", len(outs), "colorless glass-in-glass icons from official source cache")
 
 
 if __name__ == "__main__":
