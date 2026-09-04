@@ -11,14 +11,18 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install -r requirements.txt
-      - run: python scripts/sync_official_assets_ci.py
-      - run: python scripts/render_official_partial.py
+      - name: Sync strict official calibration assets
+        run: python scripts/sync_calibration_assets.py
+      - name: Render Telegram GitHub Discord glass-in-glass calibration
+        run: python scripts/render_glass_calibration.py
+      - name: Validate transparency colorlessness and provenance
+        run: python scripts/validate_glass_calibration.py
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: liquid-glass-previews
+          name: glass-in-glass-calibration
           path: |
-            generated/contact-sheets/
-            variants/regular/
+            generated/calibration/
+            generated/contact-sheets/glass-in-glass-calibration.png
+            generated/contact-sheets/glass-in-glass-edges.png
             artwork/official/provenance.json
-            artwork/official/unresolved.json
-      - run: python renderer/offline_renderer/validate.py
