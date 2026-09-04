@@ -1,0 +1,27 @@
+/*
+ * Modified derivative for lmao-glass reference renderer.
+ * Source: Kyant0/AndroidLiquidGlass
+ * Commit: 65ab177e90e5c1d8c62e70cf7755841982da65f6
+ * Original file: backdrop/src/commonMain/kotlin/com/kyant/backdrop/internal/Shaders.kt
+ *
+ * Copyright 2025 Kyant
+ * Licensed under the Apache License, Version 2.0.
+ * Modifications: extracted standalone rounded-rect SDF, refraction and highlight logic;
+ * renamed entry uniforms for lmao-glass preview integration; comments added.
+ */
+uniform shader content;
+uniform float2 size;
+uniform float2 offset;
+uniform float4 cornerRadii;
+uniform float refractionHeight;
+uniform float refractionAmount;
+uniform float depthEffect;
+uniform float chromaticAberration;
+uniform float2 lightDir;
+uniform float highlightFalloff;
+uniform float highlightStrength;
+float radiusAt(float2 coord, float4 radii) { if (coord.x >= 0.0) return coord.y <= 0.0 ? radii.y : radii.z; return coord.y <= 0.0 ? radii.x : radii.w; }
+float sdRoundedRect(float2 coord, float2 halfSize, float radius) { float2 c=abs(coord)-(halfSize-float2(radius)); return length(max(c,0.0))-radius+min(max(c.x,c.y),0.0); }
+float2 gradSdRoundedRect(float2 coord,float2 halfSize,float radius){float2 c=abs(coord)-(halfSize-float2(radius));if(c.x>=0.0||c.y>=0.0)return sign(coord)*normalize(max(c,0.0));float gx=step(c.y,c.x);return sign(coord)*float2(gx,1.0-gx);}
+float circleMap(float x){return 1.0-sqrt(1.0-x*x);}
+half4 main(float2 coord){float2 hs=size*.5;float2 centered=(coord+offset)-hs;float radius=radiusAt(coord,cornerRadii);float sd=sdRoundedRect(centered,hs,radius);if(-sd>=refractionHeight)return content.eval(coord);sd=min(sd,0.0);float d=circleMap(1.0-(-sd/refractionHeight))*refractionAmount;float gr=min(radius*1.5,min(hs.x,hs.y));float2 grad=normalize(gradSdRoundedRect(centered,hs,gr)+depthEffect*normalize(centered));float2 rc=coord+d*grad;float di=chromaticAberration*((centered.x*centered.y)/(hs.x*hs.y));float2 ds=d*grad*di;half4 c=content.eval(rc);if(chromaticAberration>0.0){half r=content.eval(rc+ds).r;half b=content.eval(rc-ds).b;c=half4(r,c.g,b,c.a);}float h=pow(abs(dot(grad,normalize(lightDir))),highlightFalloff)*highlightStrength;c.rgb+=half3(h);return c;}

@@ -1,0 +1,83 @@
+{
+  "telegram": {
+    "displayName": "Telegram",
+    "packages": ["org.telegram.messenger"],
+    "class": "irregular",
+    "scale": 0.78,
+    "offsetX": 0.01,
+    "offsetY": 0.01,
+    "source": "resolved from artwork/official/provenance.json; official geometry only"
+  },
+  "discord": {
+    "displayName": "Discord",
+    "packages": ["com.discord"],
+    "class": "wide",
+    "scale": 0.75,
+    "offsetX": 0.0,
+    "offsetY": 0.01,
+    "source": "resolved from artwork/official/provenance.json; official geometry only"
+  },
+  "github": {
+    "displayName": "GitHub",
+    "packages": ["com.github.android"],
+    "class": "circular",
+    "scale": 0.72,
+    "offsetX": 0.0,
+    "offsetY": 0.015,
+    "source": "resolved from artwork/official/provenance.json; official geometry only"
+  },
+  "google_play": {
+    "displayName": "Google Play",
+    "packages": ["com.android.vending"],
+    "class": "irregular",
+    "scale": 0.72,
+    "offsetX": 0.015,
+    "offsetY": 0.0,
+    "source": "resolved from artwork/official/provenance.json; official geometry only"
+  },
+  "pinterest": {
+    "displayName": "Pinterest",
+    "packages": ["com.pinterest"],
+    "class": "circular",
+    "scale": 0.72,
+    "offsetX": 0.0,
+    "offsetY": 0.0,
+    "source": "resolved from artwork/official/provenance.json; official geometry only"
+  },
+  "kaspi": {
+    "displayName": "Kaspi.kz",
+    "packages": ["kz.kaspi.mobile"],
+    "class": "circular",
+    "scale": 0.78,
+    "offsetX": 0.0,
+    "offsetY": 0.0,
+    "source": "resolved from artwork/official/provenance.json; official geometry only"
+  },
+  "2gis": {
+    "displayName": "2GIS",
+    "packages": ["ru.dublgis.dgismobile"],
+    "class": "normal",
+    "scale": 0.8,
+    "offsetX": 0.0,
+    "offsetY": 0.0,
+    "source": "resolved from artwork/official/provenance.json; official geometry only"
+  },
+  "revanced": {
+    "displayName": "YouTube ReVanced",
+    "packages": ["app.revanced.android.youtube", "com.google.android.youtube"],
+    "class": "circular",
+    "scale": 0.75,
+    "offsetX": 0.0,
+    "offsetY": 0.0,
+    "source": "resolved from artwork/official/provenance.json; official geometry only"
+  },
+  "gamehub": {
+    "displayName": "GameHub",
+    "packages": ["com.xiaoji.egggame"],
+    "class": "normal",
+    "scale": 0.8,
+    "offsetX": 0.0,
+    "offsetY": 0.0,
+    "source": "resolved from artwork/official/provenance.json; official geometry only"
+  }
+}
